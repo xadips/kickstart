@@ -80,7 +80,7 @@ echo -e "\n### Setting mirrors"
 reflector -c Lithuania,Latvia,Poland -a 6 --sort rate --save /etc/pacman.d/mirrorlist
 
 echo -e "\n### Installing additional tools"
-pacman -Sy --noconfirm --needed git terminus-font dialog wget
+pacman -Syyu --noconfirm git terminus-font dialog wget
 
 hostname=$(get_input "Hostname" "Enter hostname") || exit 1
 clear
