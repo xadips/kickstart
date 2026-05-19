@@ -179,6 +179,12 @@ mount "${fpart_boot}" /mnt/boot/efi
 echo -e "\n### Installing packages"
 pacstrap /mnt base linux-zen linux-zen-headers linux-firmware neovim amd-ucode grub grub-btrfs efibootmgr networkmanager dialog wpa_supplicant mtools dosfstools git reflector bluez bluez-utils cups btrfs-progs base-devel openssh zsh inotify-tools chezmoi age bitwarden-cli jq terminus-font
 
+echo -e "\n### Enabling multilib in target pacman.conf (lib32-*, steam need it)"
+if ! grep -q '^\[multilib\]' /mnt/etc/pacman.conf; then
+    printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' >> /mnt/etc/pacman.conf
+fi
+arch-chroot /mnt pacman -Sy
+
 echo "FONT=$font" >/mnt/etc/vconsole.conf
 genfstab -L /mnt >>/mnt/etc/fstab
 {
