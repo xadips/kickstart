@@ -236,8 +236,13 @@ read -rp "Bitwarden vault server URL: " SERVER
 [ -z "$SERVER" ] && { echo "Empty vault URL — aborting"; exit 1; }
 
 bw config server "$SERVER" >/dev/null
-bw status | grep -q '"unauthenticated"' && bw login
-export BW_SESSION=$(bw unlock --raw)
+status=$(bw status 2>/dev/null | jq -r .status 2>/dev/null || echo unauthenticated)
+case "$status" in
+    unauthenticated) export BW_SESSION=$(bw login --raw) ;;   # login + unlock in one prompt
+    locked)          export BW_SESSION=$(bw unlock --raw) ;;
+    unlocked)        : ;;                                     # already unlocked (BW_SESSION pre-set)
+esac
+[ -n "${BW_SESSION:-}" ] || { echo "Bitwarden auth failed"; exit 1; }
 
 echo "==> Restoring age private key"
 mkdir -p ~/.config/chezmoi
