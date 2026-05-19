@@ -64,6 +64,9 @@ get_choice() {
     dialog --clear --stdout --backtitle "$BACKTITLE" --title "$title" --menu "$description" 0 0 0 "${options[@]}"
 }
 
+echo -e "\n### Ensuring live env has enough writable space (resize cowspace tmpfs)"
+mount -o remount,size=4G /run/archiso/cowspace 2>/dev/null || true
+
 echo -e "\n### Starting pacman-init just in case"
 systemctl start pacman-init.service
 
