@@ -67,6 +67,10 @@ get_choice() {
 echo -e "\n### Ensuring live env has enough writable space (resize cowspace tmpfs)"
 mount -o remount,size=4G /run/archiso/cowspace 2>/dev/null || true
 
+echo -e "\n### Loading kernel modules needed during install (vfat for ESP, btrfs)"
+modprobe vfat fat nls_cp437 nls_iso8859-1 2>/dev/null || true
+modprobe btrfs 2>/dev/null || true
+
 echo -e "\n### Starting pacman-init just in case"
 systemctl start pacman-init.service
 
@@ -82,8 +86,11 @@ hwclock --systohc --utc
 echo -e "\n### Setting mirrors"
 reflector -c Lithuania,Latvia,Poland -a 6 --sort rate --save /etc/pacman.d/mirrorlist
 
-echo -e "\n### Installing additional tools"
-pacman -Syyu --noconfirm git terminus-font dialog wget
+echo -e "\n### Installing additional tools (no upgrade — that would wipe running kernel's modules)"
+pacman -Sy --noconfirm
+for pkg in git terminus-font dialog wget; do
+    pacman -Qi "$pkg" >/dev/null 2>&1 || pacman -S --noconfirm "$pkg"
+done
 
 hostname=$(get_input "Hostname" "Enter hostname") || exit 1
 clear
