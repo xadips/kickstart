@@ -16,7 +16,7 @@
 # Run installation:
 #
 # - Connect to wifi via: `# iwctl station wlan0 connect WIFI-NETWORK`
-# - Run: `# bash <(curl -sL ks.rvq.lt)`
+# - Run: `# bash <(curl -sL https://raw.githubusercontent.com/xadips/kickstart/main/kickstart.sh)`
 
 set -uo pipefail
 trap 's=$?; echo "$0: Error on line "$LINENO": $BASH_COMMAND"; exit $s' ERR
