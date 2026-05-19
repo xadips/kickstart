@@ -86,9 +86,12 @@ hwclock --systohc --utc
 echo -e "\n### Setting mirrors"
 reflector -c Lithuania,Latvia,Poland -a 6 --sort rate --save /etc/pacman.d/mirrorlist
 
-echo -e "\n### Installing additional tools (no upgrade — that would wipe running kernel's modules)"
+echo -e "\n### Refreshing pacman repos"
 pacman -Sy --noconfirm
-for pkg in git terminus-font dialog wget; do
+# dialog + terminus-font are what the kickstart itself uses (TUI + setfont).
+# git/wget aren't used here — they're installed into the target via pacstrap.
+# Pulling them into the live env triggered nettle/gnutls SONAME conflicts.
+for pkg in dialog terminus-font; do
     pacman -Qi "$pkg" >/dev/null 2>&1 || pacman -S --noconfirm "$pkg"
 done
 
