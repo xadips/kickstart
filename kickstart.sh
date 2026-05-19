@@ -228,7 +228,9 @@ set -e
 
 # Vault URL prompted at runtime — never embedded.
 AGE_ITEM_ID="78a62650-872e-46f0-8eb0-4af640b552d5"
-SSH_ITEM_ID="e9d7b5f8-0212-44eb-a869-046ce4b75331"
+SSH_ED25519_ITEM="e9d7b5f8-0212-44eb-a869-046ce4b75331"
+SSH_RSA_ITEM="fa174e56-4506-4d60-8c70-88d363c7020a"
+SSH_GCP_ITEM="2a278f13-0642-4540-a16e-48cecd5f024c"
 REPO="git@github.com:xadips/dotfiles.git"
 
 echo "==> Bitwarden login (interactive — needs email + master password + 2FA)"
@@ -244,12 +246,22 @@ mkdir -p ~/.config/chezmoi
 bw get attachment key.txt --itemid "$AGE_ITEM_ID" --output ~/.config/chezmoi/key.txt
 chmod 600 ~/.config/chezmoi/key.txt
 
-echo "==> Restoring SSH key (so chezmoi can clone via SSH)"
+echo "==> Restoring SSH keys (so chezmoi can clone via SSH)"
 mkdir -p ~/.ssh; chmod 700 ~/.ssh
-bw get item "$SSH_ITEM_ID" | jq -r '.sshKey.privateKey' > ~/.ssh/id_ed25519
-bw get item "$SSH_ITEM_ID" | jq -r '.sshKey.publicKey'  > ~/.ssh/id_ed25519.pub
-chmod 600 ~/.ssh/id_ed25519
-chmod 644 ~/.ssh/id_ed25519.pub
+
+# Fetch all 3 SSH keys — id_rsa is what's actually registered on the
+# xadips GitHub account, so the clone needs that one. id_ed25519 + gcp
+# are kept for parity with the host's setup.
+fetch_ssh() {
+    local item="$1" name="$2"
+    bw get item "$item" | jq -r '.sshKey.privateKey' > ~/.ssh/"$name"
+    bw get item "$item" | jq -r '.sshKey.publicKey'  > ~/.ssh/"$name".pub
+    chmod 600 ~/.ssh/"$name"
+    chmod 644 ~/.ssh/"$name".pub
+}
+fetch_ssh "$SSH_ED25519_ITEM" id_ed25519
+fetch_ssh "$SSH_RSA_ITEM"     id_rsa
+fetch_ssh "$SSH_GCP_ITEM"     google_compute_engine
 
 echo "==> Trusting github.com host key"
 ssh-keyscan -t ed25519,rsa github.com 2>/dev/null >> ~/.ssh/known_hosts
