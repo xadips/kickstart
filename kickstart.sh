@@ -45,10 +45,11 @@ get_password() {
     title="$1"
     description="$2"
 
-    init_pass=$(dialog --clear --stdout --backtitle "$BACKTITLE" --title "$title" --passwordbox "$description" 0 0)
+    # --insecure echoes '*' per keystroke; without it the box is fully blind.
+    init_pass=$(dialog --clear --insecure --stdout --backtitle "$BACKTITLE" --title "$title" --passwordbox "$description" 0 0)
     : ${init_pass:?"password cannot be empty"}
 
-    test_pass=$(dialog --clear --stdout --backtitle "$BACKTITLE" --title "$title" --passwordbox "$description again" 0 0)
+    test_pass=$(dialog --clear --insecure --stdout --backtitle "$BACKTITLE" --title "$title" --passwordbox "$description again" 0 0)
     if [[ "$init_pass" != "$test_pass" ]]; then
         echo "Passwords did not match" >&2
         exit 1
