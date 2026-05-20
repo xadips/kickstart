@@ -42,4 +42,3 @@ chezmoi init --apply "$REPO"
 
 echo
 echo "==> Done. Reboot or relog to enter your hyprland session."
-echo "    You may now delete: rm ~/.first-login-bootstrap.sh"

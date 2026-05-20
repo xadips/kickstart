@@ -64,6 +64,34 @@ get_choice() {
     dialog --clear --stdout --backtitle "$BACKTITLE" --title "$title" --menu "$description" 0 0 0 "${options[@]}"
 }
 
+# Build a dialog menu of installable drives with a usage hint per device.
+# - $1 (optional): device path to omit (used to drop drive 1 from drive 2 picker).
+# - Always omits the drive backing the live ISO (wiping it would brick the running installer).
+# - Tags drives with existing partitions / current mounts so you notice before wiping.
+build_drive_menu() {
+    local exclude="${1:-}"
+    local iso_src iso_parent iso_dev
+    iso_src=$(findmnt -no SOURCE /run/archiso/bootmnt 2>/dev/null || true)
+    iso_parent=$(lsblk -no PKNAME "$iso_src" 2>/dev/null | head -1 || true)
+    iso_dev="${iso_parent:+/dev/$iso_parent}"
+
+    local dev size parts desc
+    while IFS= read -r dev; do
+        [[ -z "$dev" || "$dev" == "$exclude" ]] && continue
+        [[ -n "$iso_dev" && "$dev" == "$iso_dev" ]] && continue
+        size=$(lsblk -dn -o SIZE "$dev" | tr -d ' ')
+        parts=$(lsblk -ln -o NAME "$dev" | tail -n +2 | wc -l)
+        if lsblk -ln -o MOUNTPOINTS "$dev" | grep -q '/'; then
+            desc="$size  [IN USE — mounted partitions]"
+        elif (( parts > 0 )); then
+            desc="$size  has $parts existing partition(s)"
+        else
+            desc="$size  empty"
+        fi
+        printf '%s\n%s\n' "$dev" "$desc"
+    done < <(lsblk -dplnx size -o name | grep -Ev "boot|rpmb|loop")
+}
+
 echo -e "\n### Ensuring live env has enough writable space (resize cowspace tmpfs)"
 mount -o remount,size=4G /run/archiso/cowspace 2>/dev/null || true
 
@@ -110,11 +138,15 @@ clear
 noyes=("Yes" "The System is RAID1" "No" "Single drive setup")
 raid=$(get_choice "Drive status" "Do you want RAID1 for 2 drives?" "${noyes[@]}") || exit 1
 
-devicelist=$(lsblk -dplnx size -o name,size | grep -Ev "boot|rpmb|loop" | tac | tr '\n' ' ')
-read -r -a devicelist <<<$devicelist
+mapfile -t fmenu < <(build_drive_menu)
+(( ${#fmenu[@]} > 0 )) || { echo "No installable drives detected" >&2; exit 1; }
+fdevice=$(get_choice "Installation" "Select first drive (data will be ERASED)" "${fmenu[@]}") || exit 1
 
-fdevice=$(get_choice "Installation" "Select first drive" "${devicelist[@]}") || exit 1
-[[ "$raid" == "Yes" ]] && sdevice=$(get_choice "Installation" "Select second drive" "${devicelist[@]}") || exit 1
+if [[ "$raid" == "Yes" ]]; then
+    mapfile -t smenu < <(build_drive_menu "$fdevice")
+    (( ${#smenu[@]} > 0 )) || { echo "Need a second drive for RAID1 but none available" >&2; exit 1; }
+    sdevice=$(get_choice "Installation" "Select second drive (data will be ERASED)" "${smenu[@]}") || exit 1
+fi
 
 clear
 
@@ -234,16 +266,27 @@ if [ "${user}" = "spidax" ]; then
         touch ~/.zshrc
         cat >> ~/.zshrc <<'EOF'
 
-# First-login bootstrap reminder (delete the script after chezmoi init succeeds)
-if [ -x ~/.first-login-bootstrap.sh ]; then
-    echo
-    echo "==> Run ~/.first-login-bootstrap.sh to clone dotfiles + restore secrets."
-    echo
+# Auto-run first-login bootstrap on the first interactive zsh shell.
+# Removes itself on success; on failure the script stays and re-runs next shell.
+# chezmoi apply replaces this ~/.zshrc with the tracked one, so this snippet
+# disappears for good once bootstrap completes.
+if [[ -o interactive && -x ~/.first-login-bootstrap.sh ]]; then
+    if ~/.first-login-bootstrap.sh; then
+        rm -f ~/.first-login-bootstrap.sh
+        echo
+        echo "==> Bootstrap complete. Open a new shell to pick up the tracked zsh config."
+        echo
+    else
+        echo
+        echo "==> Bootstrap failed. Fix the issue and open a new shell to retry,"
+        echo "    or run ~/.first-login-bootstrap.sh manually."
+        echo
+    fi
 fi
 EOF
 INNER
 
-    echo -e "\n### After reboot: log in as ${user}, run ~/.first-login-bootstrap.sh"
+    echo -e "\n### After reboot: log in as ${user} — bootstrap auto-runs on first shell"
 fi
 
 umount -R /mnt
