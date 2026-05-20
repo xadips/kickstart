@@ -40,6 +40,14 @@ sort -u -o ~/.ssh/known_hosts ~/.ssh/known_hosts
 echo "==> chezmoi init --apply"
 chezmoi init --apply "$REPO"
 
+# Self-cleanup BEFORE the reboot prompt: if the user picks "yes", reboot
+# kills the wrapping zsh before its post-bootstrap cleanup can run, leaving
+# ~/.zshrc + this script orphaned (chezmoi's .zshenv sets ZDOTDIR after,
+# so the stale ~/.zshrc is never read again). Doing it here is robust to
+# either branch of the reboot prompt.
+echo "==> Cleaning up bootstrap artifacts"
+rm -f ~/.zshrc ~/.first-login-bootstrap.sh
+
 echo
 echo "==> Done. A reboot is recommended to pick up kernel modules, /etc"
 echo "    overrides, mkinitcpio regen, and the proper getty autologin."
