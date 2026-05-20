@@ -41,4 +41,10 @@ echo "==> chezmoi init --apply"
 chezmoi init --apply "$REPO"
 
 echo
-echo "==> Done. Reboot or relog to enter your hyprland session."
+echo "==> Done. A reboot is recommended to pick up kernel modules, /etc"
+echo "    overrides, mkinitcpio regen, and the proper getty autologin."
+read -rp "Reboot now? [Y/n] " ans
+case "${ans,,}" in
+    n|no) echo "    Skipped — run 'sudo reboot' when ready." ;;
+    *)    echo "    Rebooting..."; sudo systemctl reboot ;;
+esac
