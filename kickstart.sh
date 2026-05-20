@@ -61,7 +61,12 @@ get_choice() {
     description="$2"
     shift 2
     options=("$@")
-    dialog --clear --stdout --backtitle "$BACKTITLE" --title "$title" --menu "$description" 0 0 0 "${options[@]}"
+    # Each menu entry is tag+item, so visible-row count = args/2, capped by terminal height.
+    local count=$(( $# / 2 ))
+    local cap=$(( $(tput lines 2>/dev/null || echo 24) - 10 ))
+    (( cap < 4 )) && cap=4
+    (( count > cap )) && count=$cap
+    dialog --clear --stdout --backtitle "$BACKTITLE" --title "$title" --menu "$description" 0 0 "$count" "${options[@]}"
 }
 
 # Build a dialog menu of installable drives with a usage hint per device.
