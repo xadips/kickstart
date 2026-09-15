@@ -165,28 +165,30 @@ umount -R /mnt 2>/dev/null || true
 
 lsblk -plnx size -o name "${fdevice}" | xargs -n1 wipefs --all
 [[ "$raid" == "Yes" ]] && lsblk -plnx size -o name "${sdevice}" | xargs -n1 wipefs --all
+# p1 ESP, p2 btrfs (bulk), p3 swap at end of disk — swap-in-the-middle
+# would make later swap-size changes require sliding the filesystem.
 sgdisk --clear "${fdevice}" \
     --new 1:0:+200Mib --typecode 1:ef00 \
-    --new 2:0:+${SWAP_SIZE_GB}G --typecode 2:8200 \
-    --new 3:0:0 --typecode 3:8300 \
+    --new 2:0:-${SWAP_SIZE_GB}G --typecode 2:8300 \
+    --new 3:0:0 --typecode 3:8200 \
     "${fdevice}"
-sgdisk --change-name=1:ESP --change-name=2:swap --change-name=3:primary "${fdevice}"
+sgdisk --change-name=1:ESP --change-name=2:primary --change-name=3:swap "${fdevice}"
 if [[ "$raid" == "Yes" ]]; then
     sgdisk --clear "${sdevice}" \
         --new 1:0:+200Mib --typecode 1:ef00 \
-        --new 2:0:+${SWAP_SIZE_GB}G --typecode 2:8200 \
-        --new 3:0:0 --typecode 3:8300 \
+        --new 2:0:-${SWAP_SIZE_GB}G --typecode 2:8300 \
+        --new 3:0:0 --typecode 3:8200 \
         "${sdevice}"
-    sgdisk --change-name=1:ESP --change-name=2:swap --change-name=3:primary "${sdevice}"
+    sgdisk --change-name=1:ESP --change-name=2:primary --change-name=3:swap "${sdevice}"
 fi
 
 fpart_boot="$(ls ${fdevice}* | grep -E "^${fdevice}p?1$")"
-fpart_swap="$(ls ${fdevice}* | grep -E "^${fdevice}p?2$")"
-fpart_root="$(ls ${fdevice}* | grep -E "^${fdevice}p?3$")"
+fpart_root="$(ls ${fdevice}* | grep -E "^${fdevice}p?2$")"
+fpart_swap="$(ls ${fdevice}* | grep -E "^${fdevice}p?3$")"
 
 [[ "$raid" == "Yes" ]] && spart_boot="$(ls ${sdevice}* | grep -E "^${sdevice}p?1$")"
-[[ "$raid" == "Yes" ]] && spart_swap="$(ls ${sdevice}* | grep -E "^${sdevice}p?2$")"
-[[ "$raid" == "Yes" ]] && spart_root="$(ls ${sdevice}* | grep -E "^${sdevice}p?3$")"
+[[ "$raid" == "Yes" ]] && spart_root="$(ls ${sdevice}* | grep -E "^${sdevice}p?2$")"
+[[ "$raid" == "Yes" ]] && spart_swap="$(ls ${sdevice}* | grep -E "^${sdevice}p?3$")"
 
 echo -e "\n### Formatting partitions"
 mkfs.vfat -n "EFI" -F 32 "${fpart_boot}"
